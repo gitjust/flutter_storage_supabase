@@ -1,7 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart'; // for kIsWeb
+import 'dart:io' if (dart.library.html) 'dart:html' as html; // Web support
 
 class UploadPage extends StatefulWidget {
   const UploadPage({super.key});
@@ -11,30 +13,44 @@ class UploadPage extends StatefulWidget {
 }
 
 class _UploadPageState extends State<UploadPage> {
-  File? _imageFile;
+  Uint8List? _imageBytes;
+  String? _imageName;
 
-  Future pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+  Future<void> pickImage() async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _imageFile = File(image.path);
+        _imageBytes = bytes;
+        _imageName = pickedFile.name;
       });
     }
   }
 
-  Future uploadImage() async {
-    if (_imageFile == null) return;
-    final fileName = DateTime.now().millisecondsSinceEpoch.toString();
+  Future<void> uploadImage() async {
+    if (_imageBytes == null) return;
+
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${_imageName ?? 'image.png'}';
     final path = 'uploads/$fileName';
-    await Supabase.instance.client.storage
-        .from('images')
-        .upload(path, _imageFile!)
-        .then(
-          (value) => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Image upload successful!")),
-          ),
-        );
+
+    try {
+      await Supabase.instance.client.storage
+          .from('images')
+          .uploadBinary(path, _imageBytes!);
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Image upload successful!")));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Upload failed: $e")));
+    }
   }
 
   @override
@@ -42,17 +58,29 @@ class _UploadPageState extends State<UploadPage> {
     return Scaffold(
       appBar: AppBar(title: const Text("Upload Page")),
       body: Center(
-        child: Column(
-          children: [
-            _imageFile != null
-                ? Image.file(_imageFile!)
-                : const Text("No image selected.."),
-            ElevatedButton(
-              onPressed: pickImage,
-              child: const Text("Pick image"),
-            ),
-            ElevatedButton(onPressed: uploadImage, child: const Text("Upload")),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _imageBytes != null
+                  ? Image.memory(
+                      _imageBytes!,
+                      width: 300,
+                      height: 300,
+                      fit: BoxFit.cover,
+                    )
+                  : const Text("No image selected.."),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: pickImage,
+                child: const Text("Pick Image"),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: uploadImage,
+                child: const Text("Upload"),
+              ),
+            ],
+          ),
         ),
       ),
     );
