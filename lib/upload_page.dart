@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_storage_supabase/gallery_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart'; // for kIsWeb
@@ -42,11 +43,12 @@ class _UploadPageState extends State<UploadPage> {
       await Supabase.instance.client.storage
           .from('images')
           .uploadBinary(path, _imageBytes!);
-
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Image upload successful!")));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Upload failed: $e")));
@@ -78,6 +80,14 @@ class _UploadPageState extends State<UploadPage> {
               ElevatedButton(
                 onPressed: uploadImage,
                 child: const Text("Upload"),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GalleryPage()),
+                ),
+                child: const Text("View Gallery"),
               ),
             ],
           ),
