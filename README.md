@@ -9,8 +9,8 @@ Make sure you have this in pubspec.yaml:
 flutter:
 
 assets:
+  - assets/.env
 
-- assets/.env
 Make assets/ folder in the project and create an .env file with:
 
 SUPABASE_URL=
